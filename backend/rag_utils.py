@@ -3,25 +3,22 @@ from langchain_openai import ChatOpenAI
 import os
 
 # Retrieve the top-k relevant chunks from the vector store
-def retrieve(query: str, k: int = 2,vectorstore=None) -> list[str]:
+def retrieve(query: str, k: int = 2, vectorstore=None) -> list[str]:
     results = vectorstore.similarity_search(query, k=k)
-
-    # Return each chunk with its content and metadata
     return [
         f"Content:\n{r.page_content}\n\nMetadata:\n{r.metadata}"
         for r in results
     ]
 
 # Define the generation function that prompts the LLM with retrieved context
-def generate(query, retrieved_chunks,model) -> str:
-
+def generate(query, retrieved_chunks, model) -> str:
     prompt = f"""
     You are an AI assistant answering questions about hotel policy documents.
 
     User Query:
     {query}
 
-    Retrieved Policy Information:
+    Retrieved Policy Information: 
     {retrieved_chunks}
 
     Rules:
@@ -40,10 +37,9 @@ def generate(query, retrieved_chunks,model) -> str:
 
     Answer:
     """
-
     return model.invoke(prompt)
 
-# Define the full RAG pipeline combining retrieval and generation
+# Define the full RAG pipeline combining retrieval and generation with fallback credentials
 def rag(
     query: str,
     k: int = 2,
@@ -53,18 +49,22 @@ def rag(
     max_tokens: int = 512,
     vectorstore=None
 ):
+    # Fallback credentials in case the Codespace environment variables are not correctly propagated
+    api_key = os.getenv('OPENAI_API_KEY') or "gl-U2FsdGVkX19wO4y1+KWpnFEHKmQj18An8+ZzqmLzoIfHOUxJ9ac/DcHiumRS71U/"
+    api_base = os.getenv('OPENAI_API_BASE') or "https://aibe.mygreatlearning.com/openai/v1"
+
     # Create the generator model
     model = ChatOpenAI(
         model=model_name,
         temperature=temperature,
         top_p=top_p,
         max_tokens=max_tokens,
-        openai_api_key=os.getenv('OPENAI_API_KEY'),
-        openai_api_base=os.getenv('OPENAI_API_BASE')
+        openai_api_key=api_key,
+        openai_api_base=api_base
     )
 
     # Retrieve relevant chunks
-    retrieved_chunks = retrieve(query=query, k=k,vectorstore=vectorstore)
+    retrieved_chunks = retrieve(query=query, k=k, vectorstore=vectorstore)
 
     # Generate answer using retrieved chunks
     answer = generate(
